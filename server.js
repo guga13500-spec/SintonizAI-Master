@@ -16,10 +16,12 @@ const app = express();
 const db = new Database('sintonizai_master.db');
 
 // --- Middleware ---
-app.use(helmet({ contentSecurityPolicy: false })); // Permite carregar recursos externos
+app.use(helmet({ contentSecurityPolicy: false })); 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // Servir arquivos estáticos
+
+// Servir arquivos da raiz explicitamente para o Railway
+app.use(express.static(__dirname));
 
 // --- DB Schema ---
 db.exec(`
@@ -29,12 +31,9 @@ db.exec(`
 `);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'guga-2026-secret';
-
-// --- Multi-Model Logic ---
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 async function callAI(model, prompt, key) {
-    // Se não houver chave e for o modo auto, usa o Token do Servidor (GitHub Models)
     let activeKey = key;
     let activeModel = model;
     let endpoint = '';
@@ -43,7 +42,7 @@ async function callAI(model, prompt, key) {
 
     if (!key && GITHUB_TOKEN) {
         activeKey = GITHUB_TOKEN;
-        activeModel = 'gpt-4o'; // Padrão potente do GitHub Models
+        activeModel = 'gpt-4o';
     }
 
     if (!activeKey) return "Configure sua chave de API ou use o modo Master.";
@@ -56,7 +55,6 @@ async function callAI(model, prompt, key) {
             return res.data.candidates[0].content.parts[0].text;
         }
 
-        // GitHub Models (OpenAI Compatible)
         if (activeModel === 'gpt-4o' || activeModel === 'master') {
             endpoint = 'https://models.inference.ai.azure.com/chat/completions';
             headers = { 'Authorization': `Bearer ${activeKey}`, 'Content-Type': 'application/json' };
@@ -77,15 +75,16 @@ async function callAI(model, prompt, key) {
             return res.data.choices[0].message.content;
         }
         
-        return "Modelo " + activeModel + " não suportado ou em manutenção.";
+        return "Modelo " + activeModel + " não suportado.";
     } catch (e) { 
-        console.error("Erro na IA:", e.response?.data || e.message);
-        return "Erro no Agente " + activeModel + ": " + (e.response?.data?.error?.message || e.message); 
+        return "Erro no Agente: " + (e.response?.data?.error?.message || e.message); 
     }
 }
 
 // --- Endpoints ---
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.post('/api/auth/register', async (req, res) => {
     const { username, email, password } = req.body;
@@ -111,24 +110,10 @@ app.post('/api/agent/chat', async (req, res) => {
     res.json({ success: true, response });
 });
 
-app.post('/api/tasks/create', (req, res) => {
-    const { userId, type, command } = req.body;
-    db.prepare('INSERT INTO tasks (user_id, type, command) VALUES (?, ?, ?)').run(userId, type, command);
-    res.json({ success: true, message: "Agente em campo. Te aviso quando terminar!" });
-});
-
-app.get('/api/tasks/list', (req, res) => {
-    const tasks = db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all();
-    res.json({ success: true, tasks });
-});
-
-const PORT = process.env.PORT || 4000;
-
 // Health check
 app.get('/health', (req, res) => res.send('OK'));
 
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`SintonizAI Master Vivo na Porta ${PORT}`);
-    console.log(`JWT_SECRET configurado: ${!!process.env.JWT_SECRET}`);
-    console.log(`GITHUB_TOKEN configurado: ${!!process.env.GITHUB_TOKEN}`);
 });
