@@ -31,19 +31,57 @@ db.exec(`
 const JWT_SECRET = process.env.JWT_SECRET || 'guga-2026-secret';
 
 // --- Multi-Model Logic ---
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+
 async function callAI(model, prompt, key) {
-    if (!key) return "Configure sua chave de API para o modelo " + model;
+    // Se não houver chave e for o modo auto, usa o Token do Servidor (GitHub Models)
+    let activeKey = key;
+    let activeModel = model;
+    let endpoint = '';
+    let headers = {};
+    let data = {};
+
+    if (!key && GITHUB_TOKEN) {
+        activeKey = GITHUB_TOKEN;
+        activeModel = 'gpt-4o'; // Padrão potente do GitHub Models
+    }
+
+    if (!activeKey) return "Configure sua chave de API ou use o modo Master.";
+
     try {
-        if (model === 'gemini') {
-            const res = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}`, { contents: [{ parts: [{ text: prompt }] }] });
+        if (activeModel === 'gemini') {
+            endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${activeKey}`;
+            data = { contents: [{ parts: [{ text: prompt }] }] };
+            const res = await axios.post(endpoint, data);
             return res.data.candidates[0].content.parts[0].text;
         }
-        if (model === 'groq') {
-            const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', { model: "llama3-70b-8192", messages: [{ role: "user", content: prompt }] }, { headers: { 'Authorization': `Bearer ${key}` } });
+
+        // GitHub Models (OpenAI Compatible)
+        if (activeModel === 'gpt-4o' || activeModel === 'master') {
+            endpoint = 'https://models.inference.ai.azure.com/chat/completions';
+            headers = { 'Authorization': `Bearer ${activeKey}`, 'Content-Type': 'application/json' };
+            data = { 
+                model: "gpt-4o", 
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7
+            };
+            const res = await axios.post(endpoint, data, { headers });
             return res.data.choices[0].message.content;
         }
-        return "Modelo não suportado.";
-    } catch (e) { return "Erro no Agente " + model + ": " + e.message; }
+
+        if (activeModel === 'groq') {
+            endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+            headers = { 'Authorization': `Bearer ${activeKey}` };
+            data = { model: "llama3-70b-8192", messages: [{ role: "user", content: prompt }] };
+            const res = await axios.post(endpoint, data, { headers });
+            return res.data.choices[0].message.content;
+        }
+        
+        return "Modelo " + activeModel + " não suportado ou em manutenção.";
+    } catch (e) { 
+        console.error("Erro na IA:", e.response?.data || e.message);
+        return "Erro no Agente " + activeModel + ": " + (e.response?.data?.error?.message || e.message); 
+    }
 }
 
 // --- Endpoints ---
