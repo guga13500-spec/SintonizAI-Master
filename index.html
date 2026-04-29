@@ -19,6 +19,12 @@
         .api-setup { font-size: 0.8rem; display: flex; gap: 5px; }
         .hidden { display: none; }
     </style>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
 </head>
 <body>
     <header role="banner">SintonizAI Master Agent</header>
