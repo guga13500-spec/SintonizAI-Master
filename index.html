@@ -21,30 +21,34 @@
     </style>
 </head>
 <body>
-    <header>SintonizAI Master Agent</header>
+    <header role="banner">SintonizAI Master Agent</header>
     
-    <div id="auth" class="controls">
-        <input type="email" id="email" placeholder="E-mail">
-        <input type="password" id="pass" placeholder="Senha">
-        <button onclick="login()">Entrar / Registrar</button>
-    </div>
-
-    <div id="app" class="chat-container hidden"></div>
-
-    <div id="input-area" class="controls hidden">
-        <div class="api-setup">
-            <select id="model">
-                <option value="master">Aria Ultra (Modo Master)</option>
-                <option value="gemini">Gemini Pro</option>
-                <option value="groq">Groq (Llama 3)</option>
-            </select>
-            <input type="text" id="apiKey" placeholder="Sua Chave (Vazio = Usar Master)">
+    <main id="main-content" role="main">
+        <div id="auth" class="controls">
+            <h2 class="hidden">Autenticação</h2>
+            <input type="email" id="email" placeholder="E-mail" aria-label="Endereço de E-mail">
+            <input type="password" id="pass" placeholder="Senha" aria-label="Sua Senha">
+            <button onclick="login()" aria-label="Entrar ou Registrar no sistema">Entrar / Registrar</button>
         </div>
-        <div style="display:flex; gap:10px;">
-            <input type="text" id="prompt" style="flex:1" placeholder="Diga algo, Gustavo...">
-            <button onclick="send()">Enviar</button>
+
+        <div id="app" class="chat-container hidden" role="log" aria-live="polite" aria-label="Histórico de conversas"></div>
+
+        <div id="input-area" class="controls hidden">
+            <div class="api-setup">
+                <label for="model" class="hidden">Modelo de IA</label>
+                <select id="model" aria-label="Selecione o modelo de IA">
+                    <option value="master">Aria Ultra (Modo Master)</option>
+                    <option value="gemini">Gemini Pro</option>
+                    <option value="groq">Groq (Llama 3)</option>
+                </select>
+                <input type="text" id="apiKey" placeholder="Sua Chave (Vazio = Usar Master)" aria-label="Chave de API (opcional)">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="prompt" style="flex:1" placeholder="Diga algo, Gustavo..." aria-label="Digite sua mensagem para o agente">
+                <button onclick="send()" aria-label="Enviar mensagem">Enviar</button>
+            </div>
         </div>
-    </div>
+    </main>
 
     <script>
         const chat = document.getElementById('app');
@@ -55,12 +59,17 @@
         async function login() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('pass').value;
+            if (!email || !password) return alert("Por favor, preencha todos os campos.");
+
             // Tenta registrar primeiro, se falhar tenta login
-            await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: 'Gustavo', email, password})
-            });
+            try {
+                await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: 'Gustavo', email, password})
+                });
+            } catch (e) {}
+
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -73,6 +82,8 @@
                 chat.classList.remove('hidden');
                 inputArea.classList.remove('hidden');
                 append('AI', 'Olá Gustavo! Estou online e pronto para agir. O que vamos construir hoje?');
+            } else {
+                alert("Falha no login: " + (data.message || "Verifique suas credenciais."));
             }
         }
 
@@ -85,13 +96,20 @@
             append('Você', prompt);
             document.getElementById('prompt').value = '';
 
-            const res = await fetch('/api/agent/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({message: prompt, model, apiKey})
-            });
-            const data = await res.json();
-            append('AI', data.response);
+            try {
+                const res = await fetch('/api/agent/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${user ? user.token : ''}`
+                    },
+                    body: JSON.stringify({message: prompt, model, apiKey})
+                });
+                const data = await res.json();
+                append('AI', data.response || "Erro na resposta do agente.");
+            } catch (error) {
+                append('AI', 'Erro ao conectar com o servidor.');
+            }
         }
 
         function append(sender, text) {
