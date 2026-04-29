@@ -1,0 +1,7 @@
+teamtalk
+patool
+requests
+axios
+python-dotenv
+aiohttp
+yt-dlp
