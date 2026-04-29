@@ -34,10 +34,11 @@
     <div id="input-area" class="controls hidden">
         <div class="api-setup">
             <select id="model">
+                <option value="master">Aria Ultra (Modo Master)</option>
                 <option value="gemini">Gemini Pro</option>
                 <option value="groq">Groq (Llama 3)</option>
             </select>
-            <input type="text" id="apiKey" placeholder="Sua Chave de API (Opcional)">
+            <input type="text" id="apiKey" placeholder="Sua Chave (Vazio = Usar Master)">
         </div>
         <div style="display:flex; gap:10px;">
             <input type="text" id="prompt" style="flex:1" placeholder="Diga algo, Gustavo...">
