@@ -123,4 +123,12 @@ app.get('/api/tasks/list', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`SintonizAI Master Vivo na Porta ${PORT}`));
+
+// Health check
+app.get('/health', (req, res) => res.send('OK'));
+
+app.listen(PORT, () => {
+    console.log(`SintonizAI Master Vivo na Porta ${PORT}`);
+    console.log(`JWT_SECRET configurado: ${!!process.env.JWT_SECRET}`);
+    console.log(`GITHUB_TOKEN configurado: ${!!process.env.GITHUB_TOKEN}`);
+});
